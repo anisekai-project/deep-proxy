@@ -1,0 +1,19 @@
+[versions]
+bytebuddy = "1.17.8"
+catalogUpdater = "1.0.1"
+jetbrainsAnnotations = "26.0.2-1"
+junitBom = "6.0.1"
+reckon = "1.0.1"
+slf4j-api = "2.0.17"
+
+[libraries]
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrainsAnnotations" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junitBom" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platformLauncher = { module = "org.junit.platform:junit-platform-launcher" }
+logging-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j-api" }
+proxy-bytebuddy = { module = "net.bytebuddy:byte-buddy", version.ref = "bytebuddy" }
+
+[plugins]
+catalogUpdater = { id = "nl.littlerobots.version-catalog-update", version.ref = "catalogUpdater" }
+reckon = { id = "org.ajoberstar.reckon", version.ref = "reckon" }

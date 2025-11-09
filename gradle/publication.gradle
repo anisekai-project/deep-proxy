@@ -1,0 +1,78 @@
+publishing {
+    repositories {
+        mavenLocal()
+        maven {
+            def releasesRepoUrl = layout.buildDirectory.dir('dist/releases')
+            def snapshotsRepoUrl = layout.buildDirectory.dir('dist/snapshots')
+            url = version.toString().endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+        }
+    }
+    publications {
+        create("maven", MavenPublication) {
+            artifactId = rootProject.name
+            version = version.toString()
+            from components.java
+
+            pom {
+                name = project.name
+                // Read configuration from gradle.properties
+                description = projectDescription
+                url = projectRepository
+
+                licenses {
+                    license {
+                        name = 'Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = developerId
+                        name = developerName
+                        email = developerEmail
+                    }
+                }
+                scm {
+                    def repoUri = new URI(projectRepository)
+                    connection = "scm:git:${repoUri}.git"
+                    developerConnection = "scm:git:ssh://git@${repoUri.host}${repoUri.path}.git"
+                    url = "${projectRepository}/tree/main"
+                }
+            }
+        }
+    }
+}
+
+signing {
+    sign publishing.publications.maven
+}
+
+def distributions = ['snapshot', 'release']
+
+distributions.each { distribution ->
+    tasks.register("zip${distribution.capitalize()}", Zip) {
+        group = "distribution"
+        description = "Zips the ${distribution} artifacts for Maven Central."
+        from layout.buildDirectory.dir("dist/${distribution}s")
+        archiveFileName = "${distribution}-${project.version}.zip"
+        destinationDirectory = layout.buildDirectory.dir('zips')
+    }
+
+    tasks.register("prepare${distribution.capitalize()}") {
+        group = 'distribution'
+        description = "Cleans, publishes, and zips the final ${distribution} artifacts."
+
+        dependsOn tasks.named('clean'), tasks.named('publish'), tasks.named("zip${distribution.capitalize()}")
+    }
+
+}
+
+tasks.named('publish').configure {
+    mustRunAfter tasks.named('clean')
+}
+
+distributions.each { distribution ->
+    tasks.named("zip${distribution.capitalize()}").configure {
+        mustRunAfter tasks.named('publish')
+    }
+}

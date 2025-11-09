@@ -1,0 +1,23 @@
+import java.nio.charset.StandardCharsets
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    withJavadocJar()
+    withSourcesJar()
+}
+
+def generalCharset = StandardCharsets.UTF_8.name()
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = generalCharset
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
+}
+
+javadoc {
+    options.encoding = generalCharset
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
