@@ -1,8 +1,8 @@
 [versions]
-bytebuddy = "1.17.8"
+bytebuddy = "1.18.4"
 catalogUpdater = "1.0.1"
 jetbrainsAnnotations = "26.0.2-1"
-junitBom = "6.0.1"
+junitBom = "6.0.2"
 reckon = "1.0.1"
 slf4j-api = "2.0.17"
 
