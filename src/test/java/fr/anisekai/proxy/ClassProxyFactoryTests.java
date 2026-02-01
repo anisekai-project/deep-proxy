@@ -665,6 +665,24 @@ public class ClassProxyFactoryTests {
             Assertions.assertTrue(pae2.getMessage().contains("Unable to find the proxy's factory"));
         }
 
+        @Test
+        @Order(8)
+        @DisplayName("Should change the proxy instance")
+        void shouldChangeProxyTarget() {
+
+            ClassProxyFactory factory = new ClassProxyFactory();
+            ExampleEntity     one     = ExampleEntity.create(1);
+            ExampleEntity     two     = ExampleEntity.create(2);
+
+            State<ExampleEntity> state = Assertions.assertDoesNotThrow(() -> factory.create(one));
+            Assertions.assertNotNull(state);
+            ExampleEntity proxy = state.getProxy();
+
+            Assertions.assertEquals(1L, proxy.getId());
+            Assertions.assertDoesNotThrow(() -> factory.refresh(one, two));
+            Assertions.assertEquals(2L, proxy.getId());
+        }
+
     }
 
 }
