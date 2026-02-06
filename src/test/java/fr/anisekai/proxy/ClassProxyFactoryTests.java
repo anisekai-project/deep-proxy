@@ -33,16 +33,18 @@ public class ClassProxyFactoryTests {
                     .stream()
                     .collect(Collectors.toMap(Property::getName, Function.identity()));
 
-            Assertions.assertEquals(6, properties.size());
+            Assertions.assertEquals(8, properties.size());
 
-            Assertions.assertTrue(properties.containsKey("id"));
-            Assertions.assertTrue(properties.containsKey("name"));
-            Assertions.assertTrue(properties.containsKey("active"));
-            Assertions.assertTrue(properties.containsKey("tags"));
-            Assertions.assertTrue(properties.containsKey("mapping"));
-            Assertions.assertTrue(properties.containsKey("entity"));
-            Assertions.assertFalse(properties.containsKey("ignoreThis"));
-            Assertions.assertFalse(properties.containsKey("ignored"));
+            Assertions.assertTrue(properties.containsKey("id"), "Missing 'id' property");
+            Assertions.assertTrue(properties.containsKey("name"), "Missing 'name' property");
+            Assertions.assertTrue(properties.containsKey("active"), "Missing 'active' property");
+            Assertions.assertTrue(properties.containsKey("tags"), "Missing 'tags' property'");
+            Assertions.assertTrue(properties.containsKey("mapping"), "Missing 'mapping' property");
+            Assertions.assertTrue(properties.containsKey("entity"), "Missing 'entity' property");
+            Assertions.assertTrue(properties.containsKey("entities"), "Missing 'entities' property");
+            Assertions.assertTrue(properties.containsKey("entityMap"), "Missing 'entityMap' property");
+            Assertions.assertFalse(properties.containsKey("ignoreThis"), "Extraneous 'ignoreThis' property");
+            Assertions.assertFalse(properties.containsKey("ignored"), "Extraneous 'ignored' property");
         }
 
     }
@@ -81,7 +83,7 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("tags");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 List<String> tags = Arrays.asList("one", "two", "three");
                 proxy.setTags(tags);
@@ -90,19 +92,19 @@ public class ClassProxyFactoryTests {
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getTags());
-                Assertions.assertNotNull(proxy.getTags());
+                Assertions.assertNotNull(entity.getTags(), "null list from entity");
+                Assertions.assertNotNull(proxy.getTags(), "null list from proxy");
 
-                Assertions.assertEquals(tags.size(), entity.getTags().size());
-                Assertions.assertEquals(tags.size(), proxy.getTags().size());
+                Assertions.assertEquals(tags.size(), entity.getTags().size(), "entity list desync");
+                Assertions.assertEquals(tags.size(), proxy.getTags().size(), "proxy list desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -130,7 +132,7 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("tags");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 List<String> tags = Arrays.asList("one", "two", "three");
                 proxy.setTags(tags);
@@ -138,19 +140,19 @@ public class ClassProxyFactoryTests {
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getTags());
-                Assertions.assertNotNull(proxy.getTags());
+                Assertions.assertNotNull(entity.getTags(), "null list from entity");
+                Assertions.assertNotNull(proxy.getTags(), "null list from proxy");
 
-                Assertions.assertEquals(tags.size(), entity.getTags().size());
-                Assertions.assertEquals(tags.size(), proxy.getTags().size());
+                Assertions.assertEquals(tags.size(), entity.getTags().size(), "entity list desync");
+                Assertions.assertEquals(tags.size(), proxy.getTags().size(), "proxy list desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -178,26 +180,26 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("tags");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 proxy.getTags().add("two");
 
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getTags());
-                Assertions.assertNotNull(proxy.getTags());
+                Assertions.assertNotNull(entity.getTags(), "null list from entity");
+                Assertions.assertNotNull(proxy.getTags(), "null list from proxy");
 
-                Assertions.assertEquals(2, entity.getTags().size());
-                Assertions.assertEquals(2, proxy.getTags().size());
+                Assertions.assertEquals(2, entity.getTags().size(), "entity list desync");
+                Assertions.assertEquals(2, proxy.getTags().size(), "proxy list desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -225,26 +227,26 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("tags");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 proxy.getTags().remove("two");
 
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getTags());
-                Assertions.assertNotNull(proxy.getTags());
+                Assertions.assertNotNull(entity.getTags(), "null list from entity");
+                Assertions.assertNotNull(proxy.getTags(), "null list from proxy");
 
-                Assertions.assertEquals(1, entity.getTags().size());
-                Assertions.assertEquals(1, proxy.getTags().size());
+                Assertions.assertEquals(1, entity.getTags().size(), "entity list desync");
+                Assertions.assertEquals(1, proxy.getTags().size(), "proxy list desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -279,7 +281,7 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("mapping");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 Map<String, String> map = new HashMap<>();
                 map.put("one", "1");
@@ -290,19 +292,19 @@ public class ClassProxyFactoryTests {
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getMapping());
-                Assertions.assertNotNull(proxy.getMapping());
+                Assertions.assertNotNull(entity.getMapping(), "null map from entity");
+                Assertions.assertNotNull(proxy.getMapping(), "null map from proxy");
 
-                Assertions.assertEquals(map.size(), entity.getMapping().size());
-                Assertions.assertEquals(map.size(), proxy.getMapping().size());
+                Assertions.assertEquals(map.size(), entity.getMapping().size(), "entity map desync");
+                Assertions.assertEquals(map.size(), proxy.getMapping().size(), "proxy map desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -333,7 +335,7 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("mapping");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 Map<String, String> map2 = new HashMap<>();
                 map2.put("one", "1");
@@ -344,19 +346,19 @@ public class ClassProxyFactoryTests {
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getMapping());
-                Assertions.assertNotNull(proxy.getMapping());
+                Assertions.assertNotNull(entity.getMapping(), "null map from entity");
+                Assertions.assertNotNull(proxy.getMapping(), "null map from proxy");
 
-                Assertions.assertEquals(map2.size(), entity.getMapping().size());
-                Assertions.assertEquals(map2.size(), proxy.getMapping().size());
+                Assertions.assertEquals(map2.size(), entity.getMapping().size(), "entity map desync");
+                Assertions.assertEquals(map2.size(), proxy.getMapping().size(), "proxy map desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -387,26 +389,26 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("mapping");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 proxy.getMapping().put("three", "3");
 
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getMapping());
-                Assertions.assertNotNull(proxy.getMapping());
+                Assertions.assertNotNull(entity.getMapping(), "null map from entity");
+                Assertions.assertNotNull(proxy.getMapping(), "null map from proxy");
 
-                Assertions.assertEquals(3, entity.getMapping().size());
-                Assertions.assertEquals(3, proxy.getMapping().size());
+                Assertions.assertEquals(3, entity.getMapping().size(), "entity map desync");
+                Assertions.assertEquals(3, proxy.getMapping().size(), "proxy map desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -437,26 +439,26 @@ public class ClassProxyFactoryTests {
                 Property      property = properties.get("mapping");
                 ExampleEntity proxy    = state.getProxy();
 
-                Assertions.assertFalse(state.isDirty());
+                Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
                 proxy.getMapping().remove("two");
 
                 Map<Property, Object> original = state.getOriginalState();
                 Map<Property, Object> changes  = state.getDifferentialState();
 
-                Assertions.assertFalse(original.isEmpty());
-                Assertions.assertFalse(changes.isEmpty());
+                Assertions.assertFalse(original.isEmpty(), "No recorded state");
+                Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-                Assertions.assertTrue(original.containsKey(property));
-                Assertions.assertTrue(changes.containsKey(property));
+                Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+                Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-                Assertions.assertNotNull(entity.getMapping());
-                Assertions.assertNotNull(proxy.getMapping());
+                Assertions.assertNotNull(entity.getMapping(), "null map from entity");
+                Assertions.assertNotNull(proxy.getMapping(), "null map from proxy");
 
-                Assertions.assertEquals(1, entity.getMapping().size());
-                Assertions.assertEquals(1, proxy.getMapping().size());
+                Assertions.assertEquals(1, entity.getMapping().size(), "entity map desync");
+                Assertions.assertEquals(1, proxy.getMapping().size(), "proxy map desync");
 
-                Assertions.assertTrue(state.isDirty());
+                Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
                 state.close();
                 factory.close();
@@ -481,30 +483,30 @@ public class ClassProxyFactoryTests {
                     .stream()
                     .collect(Collectors.toMap(Property::getName, Function.identity()));
 
-            Property activeProperty = properties.get("active");
+            Property property = properties.get("active");
 
             ExampleEntity proxy = state.getProxy();
 
-            Assertions.assertFalse(state.isDirty());
+            Assertions.assertFalse(state.isDirty(), "State is already dirty");
 
             proxy.setActive(false);
 
             Map<Property, Object> original = state.getOriginalState();
             Map<Property, Object> changes  = state.getDifferentialState();
 
-            Assertions.assertFalse(original.isEmpty());
-            Assertions.assertFalse(changes.isEmpty());
+            Assertions.assertFalse(original.isEmpty(), "No recorded state");
+            Assertions.assertFalse(changes.isEmpty(), "No changes detected");
 
-            Assertions.assertTrue(original.containsKey(activeProperty));
-            Assertions.assertTrue(changes.containsKey(activeProperty));
+            Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
+            Assertions.assertTrue(changes.containsKey(property), "Missing property in change map");
 
-            Assertions.assertTrue((boolean) original.get(activeProperty));
-            Assertions.assertFalse((boolean) changes.get(activeProperty));
+            Assertions.assertTrue((boolean) original.get(property), "wrong source value");
+            Assertions.assertFalse((boolean) changes.get(property), "wrong final value");
 
-            Assertions.assertFalse(entity.isActive());
-            Assertions.assertFalse(proxy.isActive());
+            Assertions.assertFalse(entity.isActive(), "entity value desync");
+            Assertions.assertFalse(proxy.isActive(), "proxy value desync");
 
-            Assertions.assertTrue(state.isDirty());
+            Assertions.assertTrue(state.isDirty(), "State was not dirty");
 
             state.close();
             factory.close();
@@ -527,7 +529,7 @@ public class ClassProxyFactoryTests {
                     .stream()
                     .collect(Collectors.toMap(Property::getName, Function.identity()));
 
-            Property activeProperty = properties.get("active");
+            Property property = properties.get("active");
 
             ExampleEntity proxy = state.getProxy();
 
@@ -539,17 +541,17 @@ public class ClassProxyFactoryTests {
             Map<Property, Object> original = state.getOriginalState();
             Map<Property, Object> changes  = state.getDifferentialState();
 
-            Assertions.assertFalse(original.isEmpty());
-            Assertions.assertTrue(changes.isEmpty());
+            Assertions.assertFalse(original.isEmpty(), "No recorded state");
+            Assertions.assertTrue(changes.isEmpty(), "Changes detected");
 
-            Assertions.assertTrue(original.containsKey(activeProperty));
+            Assertions.assertTrue(original.containsKey(property), "Missing property in recorded state");
 
-            Assertions.assertTrue((boolean) original.get(activeProperty));
+            Assertions.assertTrue((boolean) original.get(property), "wrong source value");
 
-            Assertions.assertTrue(entity.isActive());
-            Assertions.assertTrue(proxy.isActive());
+            Assertions.assertTrue(entity.isActive(), "entity value desync");
+            Assertions.assertTrue(proxy.isActive(), "proxy value desync");
 
-            Assertions.assertFalse(state.isDirty());
+            Assertions.assertFalse(state.isDirty(), "State is dirty");
 
             state.close();
             factory.close();
@@ -595,18 +597,18 @@ public class ClassProxyFactoryTests {
             Map<Property, Object> changesA = stateA.getDifferentialState();
             Map<Property, Object> changesB = stateB.getDifferentialState();
 
-            Assertions.assertFalse(changesA.isEmpty());
-            Assertions.assertFalse(changesB.isEmpty());
+            Assertions.assertFalse(changesA.isEmpty(), "State A changes empty");
+            Assertions.assertFalse(changesB.isEmpty(), "State B changes empty");
 
-            Assertions.assertTrue(changesA.containsKey(propertyA));
-            Assertions.assertTrue(changesB.containsKey(propertyB));
+            Assertions.assertTrue(changesA.containsKey(propertyA), "Missing property in State A changes");
+            Assertions.assertTrue(changesB.containsKey(propertyB), "Missing property in State B changes");
 
             String nameA = changesA.get(propertyA).toString();
             String nameB = changesB.get(propertyB).toString();
 
-            Assertions.assertNotEquals(nameA, nameB);
-            Assertions.assertNotEquals(proxyA.getName(), proxyB.getName());
-            Assertions.assertNotEquals(entityA.getName(), entityB.getName());
+            Assertions.assertNotEquals(nameA, nameB, "Changes are shared");
+            Assertions.assertNotEquals(proxyA.getName(), proxyB.getName(), "Proxy return values are shared");
+            Assertions.assertNotEquals(entityA.getName(), entityB.getName(), "Entity modification overwritten");
 
             stateA.close();
             stateB.close();
@@ -627,7 +629,7 @@ public class ClassProxyFactoryTests {
             State<ExampleEntity> stateB = Assertions.assertDoesNotThrow(() -> factory.create(entity));
             Assertions.assertNotNull(stateB);
 
-            Assertions.assertEquals(stateA, stateB);
+            Assertions.assertSame(stateA, stateB, "New proxy has been created");
 
             stateA.close();
             stateB.close();
@@ -678,9 +680,103 @@ public class ClassProxyFactoryTests {
             Assertions.assertNotNull(state);
             ExampleEntity proxy = state.getProxy();
 
-            Assertions.assertEquals(1L, proxy.getId());
+            Assertions.assertEquals(1L, proxy.getId(), "Wrong starting instance");
             Assertions.assertDoesNotThrow(() -> factory.refresh(one, two));
-            Assertions.assertEquals(2L, proxy.getId());
+            Assertions.assertEquals(2L, proxy.getId(), "Proxy target unchanged");
+
+            state.close();
+            factory.close();
+        }
+
+    }
+
+    @Nested
+    @Order(3)
+    @DisplayName("Class Proxy Unwrapping")
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+    @TestClassOrder(ClassOrderer.OrderAnnotation.class)
+    class ClassProxyUnwrappingTests {
+
+        @Test
+        @Order(1)
+        @DisplayName("Should retrieve a proxyless instance")
+        void shouldRetrieveProxyless() {
+
+            ClassProxyFactory factory = new ClassProxyFactory();
+            ExampleEntity     entity  = ExampleEntity.create();
+
+            State<ExampleEntity> state = Assertions.assertDoesNotThrow(() -> factory.create(entity));
+            Assertions.assertNotNull(state);
+
+            ExampleEntity instance = state.getInstance();
+
+            Assertions.assertEquals(entity, instance, "Did not retrieved original instance");
+
+            state.close();
+            factory.close();
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Should retrieve a proxyless instance with child")
+        void shouldRetrieveProxylessChild() {
+
+            ClassProxyFactory factory = new ClassProxyFactory();
+            ExampleEntity     entityA = ExampleEntity.create(1);
+            ExampleEntity     entityB = ExampleEntity.create(2);
+
+            State<ExampleEntity> stateA = Assertions.assertDoesNotThrow(() -> factory.create(entityA));
+            State<ExampleEntity> stateB = Assertions.assertDoesNotThrow(() -> factory.create(entityB));
+
+            Assertions.assertNotNull(stateA);
+            Assertions.assertNotNull(stateB);
+
+            ExampleEntity proxyA = stateA.getProxy();
+            ExampleEntity proxyB = stateB.getProxy();
+
+            proxyA.setEntity(proxyB);
+
+            ExampleEntity instanceA = stateA.getInstance();
+            ExampleEntity instanceB = stateB.getInstance();
+
+            Assertions.assertEquals(proxyA, instanceA, "Logical equality should match (A)");
+            Assertions.assertEquals(proxyA.getEntity(), instanceB, "Logical equality should match (B)");
+            Assertions.assertNotSame(proxyA, instanceA, "Unproxied entity leak (A)");
+            Assertions.assertNotSame(proxyA.getEntity(), instanceB, "Unproxied entity leak (B)");
+            Assertions.assertInstanceOf(State.class, proxyA.getEntity(), "Should be a proxy");
+
+            stateA.close();
+            stateB.close();
+            factory.close();
+        }
+
+        @Test
+        @Order(2)
+        @DisplayName("Should retrieve a proxyless instance with containers")
+        void shouldRetrieveProxylessContainer() {
+
+            ClassProxyFactory factory = new ClassProxyFactory();
+            ExampleEntity     entityA = ExampleEntity.create(1);
+            ExampleEntity     entityB = ExampleEntity.create(2);
+
+            List<ExampleEntity> list = new ArrayList<>();
+
+            list.add(entityB);
+
+            entityA.setEntities(list);
+
+            State<ExampleEntity> stateA = Assertions.assertDoesNotThrow(() -> factory.create(entityA));
+            Assertions.assertNotNull(stateA);
+
+            ExampleEntity proxyA    = stateA.getProxy();
+            ExampleEntity instanceA = stateA.getInstance();
+
+            Assertions.assertEquals(proxyA, instanceA, "Logical equality should match");
+            Assertions.assertEquals(proxyA.getEntities(), list, "Proxy list mismatch");
+            Assertions.assertSame(instanceA.getEntities(), list, "Instance list mismatch");
+
+            stateA.close();
+            factory.close();
         }
 
     }

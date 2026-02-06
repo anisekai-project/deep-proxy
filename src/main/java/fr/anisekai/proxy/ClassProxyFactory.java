@@ -4,39 +4,35 @@ import fr.anisekai.proxy.exceptions.ProxyAccessException;
 import fr.anisekai.proxy.exceptions.ProxyCreationException;
 import fr.anisekai.proxy.exceptions.ProxyException;
 import fr.anisekai.proxy.exceptions.ProxyInvocationException;
+import fr.anisekai.proxy.interfaces.Dirtyable;
 import fr.anisekai.proxy.interfaces.ProxyInterceptor;
 import fr.anisekai.proxy.interfaces.ProxyPolicy;
 import fr.anisekai.proxy.interfaces.State;
+import fr.anisekai.proxy.reflection.Property;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.MethodDelegation;
-import net.bytebuddy.implementation.bind.annotation.AllArguments;
-import net.bytebuddy.implementation.bind.annotation.Origin;
 import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.bind.annotation.This;
 import net.bytebuddy.matcher.ElementMatchers;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import java.lang.reflect.Proxy;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * Factory for creating state-aware proxy instances.
+ * Centralized factory and registry for state-aware proxies.
  * <p>
- * This class is the main entry point for the proxying feature. It efficiently creates proxies by caching the generated
- * proxy classes, ensuring high performance. Each proxy instance is associated with a unique state-tracking interceptor,
- * guaranteeing state separation.
+ * This factory manages the lifecycle of proxies, ensures that an object instance is only proxied once (referential
+ * integrity), and provides utility methods for deep-wrapping and unwrapping object graphs.
  */
-@SuppressWarnings("unchecked")
-public final class ClassProxyFactory {
+public final class ClassProxyFactory implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassProxyFactory.class);
 
@@ -44,252 +40,246 @@ public final class ClassProxyFactory {
      * A global, static cache for the generated proxy classes. This is the expensive part we want to do only once per
      * original class across the entire application.
      */
-    private static final class ProxyClassCache {
+    private static final Map<Class<?>, Class<?>> PROXY_CLASS_CACHE = new ConcurrentHashMap<>();
 
-        private static final Map<Class<?>, Class<?>> CACHE = new ConcurrentHashMap<>();
-
-        private static Class<?> get(Class<?> originalClass) {
-
-            return CACHE.computeIfAbsent(
-                    originalClass, clazz -> {
-                        try {
-                            return new ByteBuddy()
-                                    .subclass(clazz)
-                                    .implement(State.class)
-                                    .defineMethod("writeReplace", Object.class, Visibility.PRIVATE)
-                                    .intercept(MethodDelegation.to(WriteReplaceInterceptor.class))
-                                    .method(ElementMatchers.any())
-                                    .intercept(MethodDelegation.to(StaticMasterInterceptor.class))
-                                    .make()
-                                    .load(clazz.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
-                                    .getLoaded();
-                        } catch (Exception e) {
-                            throw new ProxyCreationException(
-                                    "Failed to generate proxy class for: " + clazz.getName(),
-                                    e
-                            );
-                        }
-                    }
-            );
-        }
-
-    }
-
-    private final Map<Object, ProxyInterceptor<?>> interceptors    = Collections.synchronizedMap(new IdentityHashMap<>());
-    private final Map<Object, Object>              proxyToInstance = Collections.synchronizedMap(new IdentityHashMap<>());
-    private final Map<Object, State<?>>            instanceToState = Collections.synchronizedMap(new IdentityHashMap<>());
+    private final Map<Object, ProxyInterceptor<?>> proxyToInterceptor = Collections.synchronizedMap(new IdentityHashMap<>());
+    private final Map<Object, State<?>>            instanceToState    = Collections.synchronizedMap(new IdentityHashMap<>());
     private final ProxyPolicy                      policy;
 
-    /**
-     * Creates a new ProxyFactory with the default proxy policy.
-     */
     public ClassProxyFactory() {
 
         this(ProxyPolicy.DEFAULT);
     }
 
-    /**
-     * Creates a new ProxyFactory with a custom proxy policy.
-     *
-     * @param policy
-     *         The policy that determines which nested objects should also be proxied.
-     */
     public ClassProxyFactory(ProxyPolicy policy) {
 
         this.policy = policy;
     }
 
-    private <T> State<T> create(T instance, T proxy, Map<Object, State<?>> context) throws ReflectiveOperationException {
-
-        StaticMasterInterceptor.PROXY_OWNER_REGISTRY.put(proxy, this);
-
-        // The interceptor is created first to be added to the context, breaking the cycle.
-        ProxyInterceptor<T> interceptor = new ClassProxyImpl<>(
-                this,
-                instance,
-                proxy,
-                this.policy,
-                context,
-                p -> {
-                    LOGGER.debug(
-                            "Unregistering proxy for {} (proxy {})",
-                            p.getInstance().getClass().getSimpleName(),
-                            p.getProxy().getClass().getSimpleName()
-                    );
-                    this.interceptors.remove(p.getProxy());
-                    this.proxyToInstance.remove(p.getProxy());
-                    this.instanceToState.remove(p.getInstance());
-                    StaticMasterInterceptor.PROXY_OWNER_REGISTRY.remove(p.getProxy());
-                }
-        );
-
-        this.interceptors.put(proxy, interceptor);
-        this.proxyToInstance.put(proxy, instance);
-        this.instanceToState.put(instance, interceptor);
-
-        // Add the new proxy state to the shared context *before* returning.
-        context.put(instance, interceptor);
-        return interceptor;
-    }
-
     /**
-     * Internal method to create a proxy with a shared context. This is used for recursive proxy creation.
+     * Creates or retrieves a proxy for the given instance.
      *
      * @param instance
-     *         The object to proxy.
-     * @param context
-     *         The shared context for the entire object graph.
+     *         The object to track.
      * @param <T>
      *         The type of the object.
      *
-     * @return A {@link State} instance.
+     * @return A {@link State} handle for the proxy.
      */
-    <T> State<T> create(T instance, Map<Object, State<?>> context) {
-
-        if (context.containsKey(instance)) {
-            return (State<T>) context.get(instance);
-        }
-
-        try {
-            Class<?> proxyClass = ProxyClassCache.get(instance.getClass());
-            T        proxy      = (T) proxyClass.getDeclaredConstructor().newInstance();
-
-            return this.create(instance, proxy, context);
-        } catch (Exception e) {
-            throw new ProxyCreationException("Failed to create proxy for class: " + instance.getClass().getName(), e);
-        }
-    }
-
-    /**
-     * Creates a new stateful proxy for the given object instance.
-     *
-     * @param instance
-     *         The object to proxy. Must not be null.
-     * @param <T>
-     *         The type of the object.
-     *
-     * @return A {@link State} instance that wraps the original object and tracks its changes.
-     *
-     * @throws ProxyCreationException
-     *         if the proxy cannot be created.
-     */
+    @SuppressWarnings("unchecked")
     public <T> State<T> create(T instance) {
 
-        if (this.instanceToState.containsKey(instance)) {
-            return (State<T>) this.instanceToState.get(instance);
-        }
-        return this.create(instance, new IdentityHashMap<>());
+        if (instance == null) return null;
+
+        return (State<T>) this.instanceToState.computeIfAbsent(instance, this::generateProxy);
     }
 
-
     /**
-     * Refresh the proxy for the given object instance. Refreshing a proxy allows to keep the same proxy while swapping
-     * the underlying tracked object instance. This is particularly useful when persisting an entity into a database and
-     * the returned instance is a different one, as it allows to continue using the same proxy with a fresh state.
+     * Refresh the proxy for the given object instance.
+     * <p>
+     * This allows keeping the same proxy reference while swapping the underlying tracked object instance. This is
+     * useful when a persistence operation returns a different instance representing the same logical entity.
      *
      * @param previousInstance
-     *         The previous object instance registered in this factory.
+     *         The instance currently being tracked.
      * @param nextInstance
-     *         The next object instance that will be targeted by the proxy.
+     *         The new instance to be tracked by the same proxy.
      * @param <T>
-     *         The type of the object
+     *         The type of the object.
+     *
+     * @throws ProxyException
+     *         if the previousInstance is not currently proxied.
      */
-    public <T> void refresh(T previousInstance, T nextInstance) throws ReflectiveOperationException {
+    @SuppressWarnings("unchecked")
+    public <T> void refresh(T previousInstance, T nextInstance) {
 
-        if (!this.instanceToState.containsKey(previousInstance)) {
-            throw new ProxyException("The instance provided does not have a proxy.");
+        if (previousInstance == null || nextInstance == null) {
+            throw new IllegalArgumentException("Instances cannot be null during refresh.");
         }
 
         State<T> state = (State<T>) this.instanceToState.get(previousInstance);
-        T        proxy = state.getProxy();
-        state.close();
-        this.create(nextInstance, proxy, new IdentityHashMap<>());
+        if (state == null) {
+            throw new ProxyException("The provided instance is not managed by this factory.");
+        }
+
+        if (!(state instanceof ClassProxyImpl<T> interceptor)) {
+            throw new ProxyException("Refresh is only supported for standard object proxies.");
+        }
+
+        this.instanceToState.remove(previousInstance);
+        interceptor.refreshInstance(nextInstance);
+        this.instanceToState.put(nextInstance, interceptor);
+
+        LOGGER.debug(
+                "Refreshed proxy for {} -> {}",
+                previousInstance.getClass().getSimpleName(),
+                nextInstance.getClass().getSimpleName()
+        );
     }
 
-    @Nullable
-    private <T> ProxyInterceptor<T> findInterceptor(T proxy) {
+    /**
+     * Wraps a value in a proxy if the current {@link ProxyPolicy} requires it. This is the "Deep Proxying" engine used
+     * by interceptors.
+     *
+     * @param property
+     *         The property context.
+     * @param value
+     *         The value to potentially wrap.
+     *
+     * @return The proxied value or the original value.
+     */
+    public Object wrapIfNecessary(Property property, Object value) {
 
-        return (ProxyInterceptor<T>) this.interceptors.get(proxy);
+        if (value == null) return null;
+
+        State<?> existingState = this.getExistingState(value);
+        if (existingState != null) return existingState.getProxy();
+
+        if (this.policy.shouldProxy(property, value)) {
+            return this.create(value).getProxy();
+        }
+
+        if (this.policy.shouldProxyContainer(value)) {
+            return this.createContainerProxy(property, value);
+        }
+
+        return value;
     }
 
-    @NotNull
-    private <T> ProxyInterceptor<T> getInterceptor(T proxy) {
+    /**
+     * Unwraps a potential proxy back to its original instance. This works recursively for collections.
+     *
+     * @param value
+     *         The value to unwrap.
+     *
+     * @return The raw instance.
+     */
+    public Object unwrap(Object value) {
 
-        ProxyInterceptor<T> interceptor = this.findInterceptor(proxy);
+        return switch (value) {
+            case null -> null;
+            case State<?> s -> s.getInstance();
+            case List<?> l -> l.stream().map(this::unwrap).toList();
+            case Set<?> s -> s.stream().map(this::unwrap).collect(Collectors.toSet());
+            case Map<?, ?> m -> {
+                Map<Object, Object> m2 = new HashMap<>();
+                m.forEach((k, v) -> m2.put(k, this.unwrap(v)));
+                yield m2;
+            }
+            default -> value;
+        };
+    }
+
+    /**
+     * Entry point for ByteBuddy's static Master Interceptor.
+     */
+    public Object intercept(Object self, Method method, Object[] args) {
+
+        ProxyInterceptor<?> interceptor = this.proxyToInterceptor.get(self);
         if (interceptor == null) {
-            throw new ProxyAccessException("Orphan Proxy: Unable to find the proxy's interceptor.");
+            throw new ProxyAccessException("Orphan Proxy: No interceptor registered for this instance.");
         }
-        return interceptor;
-    }
-
-    /**
-     * Retrieve the {@link State} associated to the provided proxy.
-     *
-     * @param proxy
-     *         The proxy from which the {@link State} should be retrieved.
-     * @param <T>
-     *         Type of the proxy class
-     *
-     * @return A possibly {@code null} {@link State}.
-     */
-    @Nullable
-    public <T> State<T> getState(T proxy) {
-
-        if (proxy instanceof State<?>) {
-            return this.findInterceptor(proxy);
-        }
-
-        return null; // not a proxy
-    }
-
-    /**
-     * The instance-based interceptor method. This is called by the StaticMasterInterceptor after it has looked up the
-     * correct factory instance.
-     */
-    @RuntimeType
-    public Object intercept(@This Object self, @Origin Method method, @AllArguments Object[] inputArgs) {
-
-        Object[] args = inputArgs == null ? new Object[0] : inputArgs;
 
         try {
-            String methodName = method.getName();
-            int    argCount   = method.getParameterCount();
-
-            if (argCount == 0 && "hashCode".equals(methodName)) {
-                return this.getInterceptor(self).getInstance().hashCode();
-            }
-            if (argCount == 0 && "toString".equals(methodName)) {
-                return this.getInterceptor(self).getInstance().toString();
-            }
-            if (argCount == 1 && "equals".equals(methodName)) {
-                Object selfInstance  = this.getInterceptor(self).getInstance();
-                Object otherArg      = args[0];
-                Object otherInstance = this.proxyToInstance.getOrDefault(otherArg, otherArg);
-                return selfInstance.equals(otherInstance);
-            }
-
-            LOGGER.trace("Intercepting '{}()' on {}", method.getName(), self.getClass().getSimpleName());
-            return this.getInterceptor(self).intercept(method, args);
+            return interceptor.intercept(method, args);
         } catch (Exception e) {
-            throw new ProxyInvocationException(
-                    String.format("Unable to invoke '%s' on '%s'", method.getName(), self.getClass().getName()),
-                    e
-            );
+            throw new ProxyInvocationException("Failed to intercept " + method.getName(), e);
         }
     }
 
-    /**
-     * Clears all caches and releases all proxy instances created by *this* factory. It also ensures that its proxies
-     * are removed from the global registry.
-     */
+    @Override
     public void close() {
-
-        for (ProxyInterceptor<?> interceptor : List.copyOf(this.interceptors.values())) {
-            interceptor.close();
-        }
-        this.interceptors.clear();
-        this.proxyToInstance.clear();
+        List.copyOf(this.proxyToInterceptor.values()).forEach(State::close);
+        this.proxyToInterceptor.clear();
         this.instanceToState.clear();
+    }
+
+    /**
+     * Retrieves an existing state for an instance without creating a new proxy.
+     */
+    @Nullable
+    public State<?> getExistingState(Object instance) {
+
+        if (instance == null) return null;
+        if (instance instanceof State<?> state) return state;
+        return this.instanceToState.get(instance);
+    }
+
+    private State<?> generateProxy(Object instance) {
+
+        try {
+            Class<?> proxyClass = getOrGenerateByteBuddyClass(instance.getClass());
+            Object   proxy      = proxyClass.getDeclaredConstructor().newInstance();
+
+            ProxyInterceptor<Object> interceptor = new ClassProxyImpl<>(
+                    this,
+                    instance,
+                    proxy,
+                    p -> {
+                        this.proxyToInterceptor.remove(p.getProxy());
+                        this.instanceToState.remove(p.getInstance());
+                        StaticMasterInterceptor.PROXY_OWNER_REGISTRY.remove(p.getProxy());
+                    }
+            );
+
+            this.proxyToInterceptor.put(proxy, interceptor);
+            StaticMasterInterceptor.PROXY_OWNER_REGISTRY.put(proxy, this);
+
+            return interceptor;
+        } catch (Exception e) {
+            throw new ProxyCreationException("Could not create proxy for " + instance.getClass(), e);
+        }
+    }
+
+    private Object createContainerProxy(Property property, Object container) {
+
+        ContainerProxyHandler handler = new ContainerProxyHandler(
+                this, property, container, p -> {
+            this.proxyToInterceptor.remove(p.getProxy());
+            this.instanceToState.remove(p.getInstance());
+            StaticMasterInterceptor.PROXY_OWNER_REGISTRY.remove(p.getProxy());
+        }
+        );
+
+        Object proxy = Proxy.newProxyInstance(
+                Dirtyable.class.getClassLoader(),
+                this.deriveInterfaces(property, container),
+                handler
+        );
+
+        this.proxyToInterceptor.put(proxy, handler);
+        this.instanceToState.put(container, handler);
+
+        StaticMasterInterceptor.PROXY_OWNER_REGISTRY.put(proxy, this);
+        handler.setProxy(proxy);
+        return proxy;
+    }
+
+    private Class<?>[] deriveInterfaces(Property property, Object container) {
+
+        Set<Class<?>> interfaces = new HashSet<>();
+        Collections.addAll(interfaces, container.getClass().getInterfaces());
+        if (property.getGetter().getReturnType().isInterface()) {
+            interfaces.add(property.getGetter().getReturnType());
+        }
+        interfaces.add(Dirtyable.class);
+        return interfaces.toArray(new Class<?>[0]);
+    }
+
+    private static Class<?> getOrGenerateByteBuddyClass(Class<?> origin) {
+
+        return PROXY_CLASS_CACHE.computeIfAbsent(
+                origin, clazz -> new ByteBuddy()
+                        .subclass(clazz)
+                        .implement(State.class)
+                        .defineMethod("writeReplace", Object.class, Visibility.PRIVATE)
+                        .intercept(MethodDelegation.to(WriteReplaceInterceptor.class))
+                        .method(ElementMatchers.any())
+                        .intercept(MethodDelegation.to(StaticMasterInterceptor.class))
+                        .make()
+                        .load(clazz.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
+                        .getLoaded()
+        );
     }
 
     /**
@@ -304,16 +294,11 @@ public final class ClassProxyFactory {
             // Find the owner factory of the proxy being serialized.
             ClassProxyFactory owner = StaticMasterInterceptor.PROXY_OWNER_REGISTRY.get(self);
             if (owner == null) {
-                // This can happen if the proxy is being serialized after its context has been closed.
-                // It's safest to throw an exception or return null if that's acceptable.
-                // For caching, we want the raw data, but the proxy is effectively an orphan.
-                // A more robust but complex solution would be to get the 'instance' from a weak map.
-                // For now, we assume the proxy is alive.
                 throw new IllegalStateException("Cannot serialize an orphan proxy.");
             }
 
             // Get the state handler for this proxy and return its raw, underlying instance.
-            State<?> state = owner.getState(self);
+            State<?> state = owner.proxyToInterceptor.get(self);
             if (state != null) {
                 return state.getInstance();
             }

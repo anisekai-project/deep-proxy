@@ -22,13 +22,15 @@ public class ExampleEntity {
     }
 
 
-    private Long                id;
-    private String              name;
-    private boolean             active;
-    private List<String>        tags;
-    private Map<String, String> mapping;
-    private boolean             ignoreThis;
-    private ExampleEntity       entity;
+    private Long                       id;
+    private String                     name;
+    private boolean                    active;
+    private List<String>               tags;
+    private Map<String, String>        mapping;
+    private boolean                    ignoreThis;
+    private ExampleEntity              entity;
+    private List<ExampleEntity>        entities;
+    private Map<String, ExampleEntity> entityMap;
 
     public Long getId() {
 
@@ -103,6 +105,26 @@ public class ExampleEntity {
     public void setEntity(ExampleEntity entity) {
 
         this.entity = entity;
+    }
+
+    public List<ExampleEntity> getEntities() {
+
+        return this.entities;
+    }
+
+    public void setEntities(List<ExampleEntity> entities) {
+
+        this.entities = entities;
+    }
+
+    public Map<String, ExampleEntity> getEntityMap() {
+
+        return this.entityMap;
+    }
+
+    public void setEntityMap(Map<String, ExampleEntity> entityMap) {
+
+        this.entityMap = entityMap;
     }
 
     @Override
