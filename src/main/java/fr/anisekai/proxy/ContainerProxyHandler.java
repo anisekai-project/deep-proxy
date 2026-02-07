@@ -168,9 +168,6 @@ public class ContainerProxyHandler implements InvocationHandler, State<Object>, 
         if (result instanceof Iterator<?> it) {
             return this.wrapIterator(it);
         }
-        if (result instanceof ListIterator it) {
-            return this.wrapListIterator(it);
-        }
         // General wrapping (for .get(i), .next(), etc.)
         return this.factory.wrapIfNecessary(this.property, result);
     }
@@ -189,50 +186,6 @@ public class ContainerProxyHandler implements InvocationHandler, State<Object>, 
 
                 ContainerProxyHandler.this.structurallyDirty = true;
                 original.remove();
-            }
-        };
-    }
-
-    private ListIterator<Object> wrapListIterator(ListIterator<Object> original) {
-
-        return new ListIterator<>() {
-            @Override
-            public boolean hasNext() {return original.hasNext();}
-
-            @Override
-            public Object next() {return ContainerProxyHandler.this.wrapResult(original.next());}
-
-            @Override
-            public boolean hasPrevious() {return original.hasPrevious();}
-
-            @Override
-            public Object previous() {return ContainerProxyHandler.this.wrapResult(original.previous());}
-
-            @Override
-            public int nextIndex() {return original.nextIndex();}
-
-            @Override
-            public int previousIndex() {return original.previousIndex();}
-
-            @Override
-            public void remove() {
-
-                ContainerProxyHandler.this.structurallyDirty = true;
-                original.remove();
-            }
-
-            @Override
-            public void set(Object o) {
-
-                ContainerProxyHandler.this.structurallyDirty = true;
-                original.set(ContainerProxyHandler.this.factory.unwrap(o));
-            }
-
-            @Override
-            public void add(Object o) {
-
-                ContainerProxyHandler.this.structurallyDirty = true;
-                original.add(ContainerProxyHandler.this.factory.unwrap(o));
             }
         };
     }

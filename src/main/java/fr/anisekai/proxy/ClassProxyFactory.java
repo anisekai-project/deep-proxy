@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
  * This factory manages the lifecycle of proxies, ensures that an object instance is only proxied once (referential
  * integrity), and provides utility methods for deep-wrapping and unwrapping object graphs.
  */
+@SuppressWarnings("unchecked")
 public final class ClassProxyFactory implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassProxyFactory.class);
@@ -66,7 +67,6 @@ public final class ClassProxyFactory implements AutoCloseable {
      *
      * @return A {@link State} handle for the proxy.
      */
-    @SuppressWarnings("unchecked")
     public <T> State<T> create(T instance) {
 
         if (instance == null) return null;
@@ -90,7 +90,6 @@ public final class ClassProxyFactory implements AutoCloseable {
      * @throws ProxyException
      *         if the previousInstance is not currently proxied.
      */
-    @SuppressWarnings("unchecked")
     public <T> void refresh(T previousInstance, T nextInstance) {
 
         if (previousInstance == null || nextInstance == null) {
@@ -128,12 +127,12 @@ public final class ClassProxyFactory implements AutoCloseable {
      *
      * @return The proxied value or the original value.
      */
-    public Object wrapIfNecessary(Property property, Object value) {
+    public <T> T wrapIfNecessary(Property property, T value) {
 
         if (value == null) return null;
 
         State<?> existingState = this.getExistingState(value);
-        if (existingState != null) return existingState.getProxy();
+        if (existingState != null) return (T) existingState.getProxy();
 
         if (this.policy.shouldProxy(property, value)) {
             return this.create(value).getProxy();
@@ -154,17 +153,17 @@ public final class ClassProxyFactory implements AutoCloseable {
      *
      * @return The raw instance.
      */
-    public Object unwrap(Object value) {
+    public <T> T unwrap(T value) {
 
         return switch (value) {
             case null -> null;
-            case State<?> s -> s.getInstance();
-            case List<?> l -> l.stream().map(this::unwrap).toList();
-            case Set<?> s -> s.stream().map(this::unwrap).collect(Collectors.toSet());
+            case State<?> s -> (T) s.getInstance();
+            case List<?> l -> (T) l.stream().map(this::unwrap).toList();
+            case Set<?> s -> (T) s.stream().map(this::unwrap).collect(Collectors.toSet());
             case Map<?, ?> m -> {
                 Map<Object, Object> m2 = new HashMap<>();
                 m.forEach((k, v) -> m2.put(k, this.unwrap(v)));
-                yield m2;
+                yield (T) m2;
             }
             default -> value;
         };
@@ -189,6 +188,7 @@ public final class ClassProxyFactory implements AutoCloseable {
 
     @Override
     public void close() {
+
         List.copyOf(this.proxyToInterceptor.values()).forEach(State::close);
         this.proxyToInterceptor.clear();
         this.instanceToState.clear();
@@ -198,11 +198,11 @@ public final class ClassProxyFactory implements AutoCloseable {
      * Retrieves an existing state for an instance without creating a new proxy.
      */
     @Nullable
-    public State<?> getExistingState(Object instance) {
+    public <T> State<T> getExistingState(T instance) {
 
         if (instance == null) return null;
-        if (instance instanceof State<?> state) return state;
-        return this.instanceToState.get(instance);
+        if (instance instanceof State<?> state) return (State<T>) state;
+        return (State<T>) this.instanceToState.get(instance);
     }
 
     private State<?> generateProxy(Object instance) {
@@ -231,7 +231,7 @@ public final class ClassProxyFactory implements AutoCloseable {
         }
     }
 
-    private Object createContainerProxy(Property property, Object container) {
+    private <T> T createContainerProxy(Property property, T container) {
 
         ContainerProxyHandler handler = new ContainerProxyHandler(
                 this, property, container, p -> {
@@ -241,7 +241,7 @@ public final class ClassProxyFactory implements AutoCloseable {
         }
         );
 
-        Object proxy = Proxy.newProxyInstance(
+        T proxy = (T) Proxy.newProxyInstance(
                 Dirtyable.class.getClassLoader(),
                 this.deriveInterfaces(property, container),
                 handler
