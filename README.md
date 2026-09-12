@@ -32,7 +32,7 @@ This library is ideal for scenarios like:
 
 ### Prerequisites
 
-*   Java 17 or higher
+*   Java 25 or higher
 *   A dependency management tool like Maven or Gradle
 
 ### Installation
@@ -44,13 +44,13 @@ This library is ideal for scenarios like:
 <dependency>
   <groupId>fr.anisekai</groupId>
   <artifactId>deep-proxy</artifactId>
-  <version>1.0.0</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
 **Gradle:**
 ```groovy
-implementation 'fr.anisekai:deep-proxy:1.0.0'
+implementation 'fr.anisekai:deep-proxy:1.2.0'
 ```
 
 ---
@@ -196,3 +196,17 @@ This library uses **ByteBuddy** to dynamically generate a subclass of your targe
 3.  **State Management**: Each proxy instance is associated with a unique `ClassProxyImpl` object, which holds its original state and tracks any differences.
 4.  **Deep Proxying**: When a getter is called, the `ProxyPolicy` is consulted. If the returned value should be tracked (e.g., another domain object or a collection), the factory recursively creates a proxy for it.
 5.  **Container Handling**: `List`, `Map`, and `Set` objects are wrapped using a standard Java `InvocationHandler` (`ContainerProxyHandler`) that specifically listens for mutator methods (`add`, `remove`, `put`, etc.) to mark the container as dirty.
+
+---
+
+## Build and test
+
+The Gradle wrapper is included:
+
+```shell
+./gradlew build
+```
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
